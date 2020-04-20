@@ -50,6 +50,10 @@ void PlotComponent::plot_lines(Graphics &g) {
       std::tie(last_x, last_y) = line.front();
       for (size_t i = 1; i < line.size(); i++) {
         auto [x, y] = line[i];
+        // if any of these is nan
+        if (std::isnan(x+y+last_x+last_y)) {
+          continue;
+        }
         auto [x1, y1] = map_point(last_x, last_y);
         auto [x2, y2] = map_point(x, y);
 

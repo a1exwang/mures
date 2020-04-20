@@ -9,10 +9,7 @@ UIUpdater::UIUpdater(float fps) {
 }
 
 UIUpdater::~UIUpdater() {
-  worker_quit_ = true;
-  for (auto &t : thread_pool_) {
-    t.join();
-  }
+  shutdown();
 }
 
 void UIUpdater::enqueue_ui(std::function<void()> action) {
@@ -68,5 +65,15 @@ void UIUpdater::ui_processing_worker_callback() {
       ui_processing_queue.pop_front();
     }
     action();
+  }
+}
+
+void UIUpdater::shutdown() {
+  std::lock_guard _(shutdown_lock_);
+  if (!worker_quit_) {
+    worker_quit_ = true;
+    for (auto &t : thread_pool_) {
+      t.join();
+    }
   }
 }

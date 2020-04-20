@@ -2,12 +2,17 @@
 
 #include <JuceHeader.h>
 
+#include <thread>
+#include <list>
+
 
 class UIUpdater :public juce::Timer {
  public:
   explicit UIUpdater(float fps = 30);
   ~UIUpdater() override;
   void timerCallback() override;
+
+  void shutdown();
 
   void enqueue_ui(std::function<void()> action);
   void enqueue_ui_processing(std::function<void()> action);
@@ -45,6 +50,7 @@ class UIUpdater :public juce::Timer {
 
   // UI processing workers
   std::atomic<bool> worker_quit_ = false;
+  std::mutex shutdown_lock_;
   std::atomic<float> average_ui_processing_latency_ = 0;
   std::vector<float> ui_processing_latencies_ = std::vector<float>(16);
   size_t ui_processing_latency_index_ = 0;

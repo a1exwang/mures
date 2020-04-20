@@ -183,8 +183,8 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
  private:
   MainInfo main_info_;
 
-  juce::MenuBarComponent menu_bar_;
   std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, std::function<void()>>>>> menu_items_;
+  juce::MenuBarComponent menu_bar_;
 
   Label info_text;
 

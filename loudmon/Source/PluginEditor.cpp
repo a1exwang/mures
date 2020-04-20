@@ -111,6 +111,7 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
 }
 
 MainComponent::~MainComponent() {
+  shutdown();
   if (debug_window) {
     debug_window.deleteAndZero();
     debug_window = nullptr;
