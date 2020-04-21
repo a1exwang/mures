@@ -11,6 +11,7 @@
 #include "loudmon/oscilloscope.h"
 #include "synth/synth.h"
 #include "common/ui_updater.h"
+#include "display/loudness.h"
 
 class DebugOutputWindow;
 class MainInfo {
@@ -93,15 +94,7 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
   PopupMenu getMenuForIndex(int topLevelMenuIndex, const String &menuName) override;
   void menuItemSelected (int menu_item_id, int top_level_menu_index) override;
 
-  [[nodiscard]]
-  bool is_main_filter_enabled() const {
-    return main_filter_enabled.load();
-  }
-
   void toggle_debug_window();
-  void toggle_main_filter();
-  void toggle_oscilloscope();
-
   /* Component callbacks, UI thread */
   void visibilityChanged() override;
   void paint(Graphics& g) override;
@@ -141,13 +134,9 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
 
   void prepare_to_play(double sample_rate, size_t samples_per_block, size_t input_channels);
 
-  template <typename Context>
-  void filter_process(int channel, Context &context) {
-    if (filter) {
-      filter->process(channel, context);
-    }
+  SynthControl &get_synth_control() {
+    return synth_control_;
   }
-
   void calculate_spectrum();
   void calculate_entropy();
   void reset_entropy();
@@ -172,10 +161,10 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
     keyboard_state_.processNextMidiBuffer(ret, 0, static_cast<int>(sample_count), true);
     return ret;
   }
-
-  SynthControl &get_synth_control() {
-    return synth_control_;
-  }
+//
+//  SynthControl &get_synth_control() {
+//    return synth_control_;
+//  }
 
  protected:
   void resize_children();
@@ -183,24 +172,18 @@ class MainComponent : public AudioProcessorEditor, public UIUpdater, public juce
  private:
   MainInfo main_info_;
 
+  LoudnessMonitor loudness_monitor_;
+
   std::vector<std::tuple<std::string, std::vector<std::tuple<std::string, std::function<void()>>>>> menu_items_;
   juce::MenuBarComponent menu_bar_;
 
   Label info_text;
 
-  std::atomic<int> oscilloscope_enabled_ = true;
-  OscilloscopeComponent oscilloscope_waveform_;
-  PlotComponent oscilloscope_spectrum_;
-
   Component::SafePointer<DebugOutputWindow> debug_window;
   bool debug_window_visible_ = false;
 
-  std::atomic<int> main_filter_enabled = false;
-  std::unique_ptr<FilterTransferFunctionComponent> filter;
   std::chrono::high_resolution_clock::time_point last_paint_time;
-  dsp::FFT fft_ = dsp::FFT(11);
   AudioBuffer<float> buffer_;
-  AudioBuffer<float> spectrum_buffer_ = AudioBuffer<float>(1, 1ul<<12);
 
   const size_t entropy_bits = 16;
   std::vector<size_t> value_counts_ = std::vector<size_t>(size_t(int(1 << entropy_bits)), size_t(0));

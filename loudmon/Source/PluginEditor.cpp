@@ -48,13 +48,6 @@ static auto get_menu_items(MainComponent *that) {
           }
       },
       {
-          "Filter",
-          {
-              {"Toggle Main Filter", std::bind(&MainComponent::toggle_main_filter, that)},
-              {"Toggle Oscilloscope", std::bind(&MainComponent::toggle_oscilloscope, that)}
-          }
-      },
-      {
         "Control",
             {
                 {"Reset Entropy", std::bind(&MainComponent::reset_entropy, that)},
@@ -69,7 +62,6 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
       main_info_(std::bind(&MainComponent::repaint_safe, this)),
       menu_items_(get_menu_items(this)),
       menu_bar_(this),
-      oscilloscope_waveform_(256),
       keyboard_(keyboard_state_, juce::MidiKeyboardComponent::Orientation::horizontalKeyboard) {
 
 //  debug_plot.set_value_range(0, 1, 0, 1, false, false);
@@ -97,11 +89,7 @@ MainComponent::MainComponent(NewProjectAudioProcessor& p)
   info_text.setJustificationType (Justification::left);
   info_text.setBounds(10, 10, getWidth() - 20, 400 - 20);
 
-  addChildComponent(oscilloscope_waveform_);
-  addChildComponent(oscilloscope_spectrum_);
-  oscilloscope_waveform_.setVisible(oscilloscope_enabled_);
-  oscilloscope_spectrum_.setVisible(oscilloscope_enabled_);
-  oscilloscope_spectrum_.set_value_range(20, 20000, -50, 10, true, false);
+  addAndMakeVisible(loudness_monitor_);
 
   debug_window = new DebugOutputWindow("Debug Window", Colour(0), true);
   debug_window->setSize(1024, 400);
@@ -160,20 +148,6 @@ void MainComponent::toggle_debug_window() {
     debug_window->setVisible(debug_window_visible_ && isVisible());
   }
 }
-void MainComponent::toggle_main_filter() {
-  auto enabled = !main_filter_enabled.fetch_xor(1);
-  if (filter) {
-    filter->setVisible(enabled);
-    resize_children();
-  }
-}
-void MainComponent::toggle_oscilloscope() {
-  auto enabled = !oscilloscope_enabled_.fetch_xor(1);
-  oscilloscope_waveform_.setVisible(enabled);
-  oscilloscope_spectrum_.setVisible(enabled);
-  resize_children();
-}
-
 void MainComponent::visibilityChanged() {
   if (debug_window) {
     debug_window->setVisible(isVisible() && debug_window_visible_);
@@ -190,17 +164,11 @@ void MainComponent::paint(Graphics& g) {
 
 
 void MainComponent::prepare_to_play(double sample_rate, size_t samples_per_block, size_t input_channels) {
+  loudness_monitor_.prepareToPlay(sample_rate);
   enqueue_ui([this, sample_rate, samples_per_block, input_channels]() {
     main_info_.set_sample_rate(sample_rate);
     main_info_.set_samples_per_block(samples_per_block);
     main_info_.set_input_channels(input_channels);
-
-    // automatically delete old filter and replace it with the new one
-    filter = std::make_unique<FilterTransferFunctionComponent>(static_cast<float>(sample_rate), input_channels);
-    addChildComponent(*filter);
-    filter->setVisible(main_filter_enabled);
-
-    synth_control_.set_sample_rate(static_cast<float>(sample_rate));
     resize_children();
   });
 }
@@ -210,56 +178,23 @@ void MainComponent::resize_children() {
   auto area = getLocalBounds();
   menu_bar_.setBounds(area.removeFromTop (LookAndFeel::getDefaultLookAndFeel().getDefaultMenuBarHeight()));
   keyboard_.setBounds(area.removeFromBottom(50));
+
   auto control_area = area.removeFromLeft(static_cast<int>(area.getWidth()*(1.0f/2.0f)));
   synth_control_.setBounds(control_area);
   auto total_height = area.getHeight();
+  loudness_monitor_.setBounds(area.removeFromTop(total_height/8.0));
   info_text.setBounds(area.removeFromTop(total_height/4));
-
-  if (oscilloscope_enabled_) {
-    oscilloscope_waveform_.setBounds(area.removeFromTop(total_height/8*3));
-    oscilloscope_spectrum_.setBounds(area.removeFromTop(total_height/8*3));
-  }
-
-  if (filter && main_filter_enabled) {
-    filter->setBounds(area);
-  }
 }
 
 void MainComponent::send_block(float sample_rate, AudioBuffer<float> buffer) {
   enqueue_ui([this, sample_rate, buffer{std::move(buffer)}]() {
+    loudness_monitor_.processBlock(buffer);
     buffer_ = buffer;
-    if (oscilloscope_enabled_) {
-      oscilloscope_waveform_.add_values(buffer_.getArrayOfReadPointers()[0], buffer_.getNumSamples());
-
-      calculate_spectrum();
-
-      std::vector<std::tuple<float, float>> values(spectrum_buffer_.getNumSamples() / 2 + 1);
-      auto buf = spectrum_buffer_.getReadPointer(0);
-      for (int i = 0; i < values.size(); i++) {
-        values[i] = {float(i) / spectrum_buffer_.getNumSamples() * sample_rate, 10 * log10(buf[i])};
-        if (buf[i] > 0) {
-          log(10, std::to_string(std::get<0>(values[i])) + " " + std::to_string(std::get<1>(values[i])));
-        }
-      }
-
-      oscilloscope_spectrum_.clear();
-      oscilloscope_spectrum_.add_new_values("spectrum", std::move(values));
-      oscilloscope_spectrum_.repaint();
-    }
-
     calculate_entropy();
   });
-}
-
-void MainComponent::calculate_spectrum() {
-  LagrangeInterpolator interpolator;
-  double ratio = (double)buffer_.getNumSamples() / spectrum_buffer_.getNumSamples();
-  interpolator.process(
-      ratio,
-      buffer_.getReadPointer(0),
-      spectrum_buffer_.getWritePointer(0),
-      spectrum_buffer_.getNumSamples());
-//  fft_.performFrequencyOnlyForwardTransform(spectrum_buffer_.getWritePointer(0));
+  enqueue_ui([this]() {
+    loudness_monitor_.updateUI();
+  });
 }
 
 void MainComponent::calculate_entropy() {

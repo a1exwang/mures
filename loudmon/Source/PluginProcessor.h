@@ -48,11 +48,6 @@ class NewProjectAudioProcessor  : public AudioProcessor {
   std::chrono::high_resolution_clock::time_point last_process_time;
   size_t late_block_count_ = 0;
   MPESynthesiser synthesiser_;
-
-  float freq_split_lowmid = 200, freq_split_midhigh = 2000;
-  float q = 0.1f;
-  std::vector<dsp::IIR::Filter<float>> low_filter, high_filter;
-  std::vector<PeakFilter<float>> mid_filter;
   //==============================================================================
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NewProjectAudioProcessor)
 };

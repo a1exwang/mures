@@ -8,7 +8,7 @@
 
 class UIUpdater :public juce::Timer {
  public:
-  explicit UIUpdater(float fps = 30);
+  explicit UIUpdater(float fps = 5);
   ~UIUpdater() override;
   void timerCallback() override;
 

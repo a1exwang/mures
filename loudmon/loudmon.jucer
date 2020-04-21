@@ -32,6 +32,8 @@
       <FILE id="Mmr7Bb" name="waveform.cpp" compile="1" resource="0" file="Source/synth/waveform.cpp"/>
       <FILE id="Mmr7Bc" name="ui_updater.h" compile="0" resource="0" file="Source/common/ui_updater.h"/>
       <FILE id="Mmr7Bd" name="ui_updater.cpp" compile="1" resource="0" file="Source/common/ui_updater.cpp"/>
+      <FILE id="Mmr7Be" name="loudness.h" compile="0" resource="0" file="Source/display/loudness.h"/>
+      <FILE id="Mmr7Bf" name="loudness.cpp" compile="1" resource="0" file="Source/display/loudness.cpp"/>
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
